@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# render.yaml — تعریف سرویس نورتیکا برای دیپلوی خودکار روی Render (Blueprint)
+# با این فایل، فقط کافیه ریپازیتوری رو در Render به‌عنوان "Blueprint" وصل
+# کنی؛ نیازی به تنظیم دستی Build/Start Command نیست.
+#
+# یک دیتابیس PostgreSQL رایگان هم اینجا تعریف شده که آدرسش خودکار به
+# DATABASE_URL سرویس وب وصل می‌شه؛ به این ترتیب اطلاعات کاربران، تیکت‌ها،
+# برنامه‌ها و... بعد از خواب/بیدار شدن سرویس یا هر دیپلوی جدید هم پاک
+# نمی‌شن (چون دیگه از SQLite محلی که ephemeral بود استفاده نمی‌کنیم).
+# ---------------------------------------------------------------------------
+databases:
+  - name: noortika-db
+    plan: free
+    region: frankfurt
+    databaseName: noortika
+    user: noortika
+
+services:
+  - type: web
+    name: noortika
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      # آدرس دیتابیس PostgreSQL پایدار؛ خودکار از سرویس database بالا پر
+      # می‌شود (نیازی به دست‌زدن یا مقداردهی دستی نیست).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: noortika-db
+          property: connectionString
+      # آدرس نهایی دامنه‌ی سایت بعد از اولین دیپلوی این مقدار را با URL
+      # واقعی‌ای که Render به تو می‌دهد (یا دامنه‌ی اختصاصی‌ات) عوض کن؛
+      # pages.py و redirect_manager.py هر دو از همین متغیر برای
+      # canonical/OG/sitemap و whitelist دامنه استفاده می‌کنند.
+      - key: SITE_URL
+        value: https://noortika.onrender.com
+      # اختیاری: برای فعال‌سازی هوش مصنوعی واقعی Gemini. اگر خالی بماند،
+      # پروژه با موتور fallback داخلی کار می‌کند.
+      - key: GEMINI_API_KEY
+        sync: false
+      # اختیاری ولی برای «فراموشی رمز عبور» لازم است: تنظیمات SMTP برای
+      # ارسال واقعی ایمیل کد بازیابی رمز عبور. اگر خالی بماند، کد فقط در
+      # لاگ سرور Render چاپ می‌شود (برای تست کافی است، ولی برای کاربر
+      # واقعی باید این‌ها را از Environment روی Render پر کنی؛ مثلاً با یک
+      # App Password جیمیل یا هر سرویس SMTP دیگر).
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # اختیاری: فقط اگر بخواهی برخی Redirectها به یک دامنه‌ی خارجی مجاز
+      # اشاره کنند (پیش‌فرض خالی = هیچ دامنه‌ی خارجی مجاز نیست).
+      - key: ALLOWED_REDIRECT_HOSTS
+        value: ""
+      # رمز عبور ورود به پنل ادمین (/admin). حتماً بعد از اولین دیپلوی از
+      # داشبورد Render > Environment یک مقدار دلخواه و امن برایش تنظیم کن؛
+      # چون sync: false است، این مقدار داخل ریپازیتوری ذخیره/نمایش داده نمی‌شود.
+      - key: ADMIN_PASSWORD
+        sync: false
